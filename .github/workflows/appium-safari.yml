@@ -1,0 +1,30 @@
+name: iPhone Safari Appium smoke test
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install Appium
+        run: |
+          npm install --global appium@4.0.1
+          appium driver install xcuitest@13.8.0
+      - name: Tap a link in iPhone Safari
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+          time python3 appium_smoke.py
+      - name: Show Appium log on failure
+        if: failure()
+        run: |
+          if [[ -f appium.log ]]; then
+            tail -100 appium.log
+          fi
