@@ -31,8 +31,8 @@ case "$APPIUM_MODE" in
     ;;
   safari-driver)
     sudo -n /usr/bin/safaridriver --enable
-    open -a "$(xcode-select -p)/Applications/Simulator.app"
     xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+    open -a "$(xcode-select -p)/Applications/Simulator.app" --args -CurrentDeviceUDID "$SIMULATOR_UDID"
     xcrun simctl launch "$SIMULATOR_UDID" com.apple.mobilesafari
     ;;
   *)

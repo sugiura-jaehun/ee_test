@@ -24,6 +24,8 @@ def capabilities(fixture_url):
         "appium:platformVersion": "26.5",
         "appium:bundleId": "com.apple.mobilesafari",
         "appium:initialDeeplinkUrl": fixture_url,
+        "appium:simulatorStartupTimeout": 420000,
+        "appium:isHeadless": True,
         "appium:wdaLaunchTimeout": 480000,
         "appium:wdaConnectionTimeout": 90000,
         "appium:wdaStartupRetries": 1,
@@ -38,7 +40,7 @@ def capabilities(fixture_url):
 def run_test(fixture_url):
     caps = capabilities(fixture_url)
     print(f"Starting an Appium session with {os.environ['APPIUM_MODE']}", flush=True)
-    session = command("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=660)
+    session = command("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=960)
     path = f'/session/{session["sessionId"]}'
     print("Appium session created", flush=True)
     try:
