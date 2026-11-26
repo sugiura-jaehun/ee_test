@@ -59,7 +59,7 @@ def run_test(fixture_url):
         "platformName": "iOS",
         "safari:useSimulator": True,
         "safari:deviceName": "iPhone 17",
-        "platformVersion": "27.2",
+        "safari:platformVersion": "27.0",
     }}}, timeout=75)
     print("iPhone Safari session created", flush=True)
     path = f'/session/{session["sessionId"]}'
@@ -87,6 +87,7 @@ if __name__ == "__main__":
         with subprocess.Popen(["/usr/bin/safaridriver", "-p", "4444"]) as driver:
             try:
                 wait_for_driver(driver)
+                print("Safari WebDriver is ready", flush=True)
                 run_test(f"http://127.0.0.1:{server.server_port}/")
             finally:
                 if driver.poll() is None:
