@@ -1,11 +1,26 @@
-name: iPhone Safari Appium smoke test
+name: Appium iPhone Safari comparison
 on: workflow_dispatch
 permissions:
   contents: read
 jobs:
   safari:
-    runs-on: macos-26
-    timeout-minutes: 18
+    name: ${{ matrix.mode }} / ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 24
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: xcuitest-managed
+            runner: macos-26
+          - mode: xcuitest-attach
+            runner: macos-26
+          - mode: xcuitest-attach
+            runner: macos-26-intel
+          - mode: safari-driver
+            runner: macos-26
+    env:
+      APPIUM_MODE: ${{ matrix.mode }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -13,18 +28,34 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Install Appium
+      - name: Install Appium and the selected driver
         run: |
+          export APPIUM_HOME="$RUNNER_TEMP/appium-home"
+          echo "APPIUM_HOME=$APPIUM_HOME" >> "$GITHUB_ENV"
           npm install --global appium@4.0.1
-          appium driver install xcuitest@13.8.0
-      - name: Tap a link in iPhone Safari
+          if [[ "$APPIUM_MODE" == safari-driver ]]; then
+            appium driver install safari@6.0.5
+          else
+            appium driver install xcuitest@13.8.0
+          fi
+      - name: Resolve the iPhone 17 on iOS 26.5
         run: |
+          uname -m
           xcodebuild -version
-          xcrun simctl list devices available
-          time python3 appium_smoke.py
-      - name: Show Appium log on failure
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
+          print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
+          ')
+          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+      - name: Tap one link in iPhone Safari through Appium
+        run: bash appium/run-smoke.sh
+      - name: Print failure diagnostics
         if: failure()
         run: |
-          if [[ -f appium.log ]]; then
-            tail -100 appium.log
-          fi
+          for log in appium.log wda.log; do
+            if [[ -f "$log" ]]; then
+              echo "Log: $log"
+              tail -65 "$log"
+            fi
+          done

@@ -1,3 +1,4 @@
+import os
 import subprocess
 from http.server import ThreadingHTTPServer
 from threading import Thread
@@ -5,33 +6,60 @@ from threading import Thread
 from safari_smoke import ELEMENT_KEY, TestPage, command, wait_for_driver
 
 
-def run_test(fixture_url):
-    session = command("POST", "/session", {"capabilities": {"alwaysMatch": {
+def capabilities(fixture_url):
+    mode = os.environ["APPIUM_MODE"]
+    if mode == "safari-driver":
+        return {
+            "platformName": "iOS",
+            "browserName": "Safari",
+            "appium:automationName": "Safari",
+            "safari:useSimulator": True,
+            "safari:deviceUDID": os.environ["SIMULATOR_UDID"],
+        }
+    caps = {
         "platformName": "iOS",
         "appium:automationName": "XCUITest",
+        "appium:udid": os.environ["SIMULATOR_UDID"],
         "appium:deviceName": "iPhone 17",
         "appium:platformVersion": "26.5",
         "appium:bundleId": "com.apple.mobilesafari",
         "appium:initialDeeplinkUrl": fixture_url,
-        "appium:wdaLaunchTimeout": 180000,
-        "appium:wdaConnectionTimeout": 60000,
-    }}}, timeout=420)
+        "appium:wdaLaunchTimeout": 480000,
+        "appium:wdaConnectionTimeout": 90000,
+        "appium:wdaStartupRetries": 1,
+        "appium:waitForIdleTimeout": 3,
+        "appium:showXcodeLog": True,
+    }
+    if mode == "xcuitest-attach":
+        caps["appium:webDriverAgentUrl"] = "http://127.0.0.1:8100"
+    return caps
+
+
+def run_test(fixture_url):
+    caps = capabilities(fixture_url)
+    print(f"Starting an Appium session with {os.environ['APPIUM_MODE']}", flush=True)
+    session = command("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=660)
     path = f'/session/{session["sessionId"]}'
     print("Appium session created", flush=True)
     try:
-        context = command("GET", path + "/context")
-        if context != "NATIVE_APP":
-            raise AssertionError(f"Unexpected Appium context: {context}")
-        command("POST", path + "/timeouts", {"implicit": 20000})
-        link = command("POST", path + "/element", {
-            "using": "-ios predicate string",
-            "value": "type == 'XCUIElementTypeLink' AND label == 'Open result'",
-        }, timeout=60)
-        command("POST", f"{path}/element/{link[ELEMENT_KEY]}/click", {}, timeout=60)
-        command("POST", path + "/element", {
-            "using": "-ios predicate string",
-            "value": "label == 'Link clicked'",
-        }, timeout=60)
+        command("POST", path + "/timeouts", {"implicit": 25000})
+        if caps["appium:automationName"] == "Safari":
+            command("POST", path + "/url", {"url": fixture_url}, timeout=60)
+            link = {"using": "css selector", "value": "#test-link"}
+            result = {"using": "css selector", "value": "#result"}
+        else:
+            context = command("GET", path + "/context")
+            if context != "NATIVE_APP":
+                raise AssertionError(f"Unexpected Appium context: {context}")
+            link = {
+                "using": "-ios predicate string",
+                "value": "type == 'XCUIElementTypeLink' AND label == 'Open result'",
+            }
+            result = {"using": "-ios predicate string", "value": "label == 'Link clicked'"}
+        element = command("POST", path + "/element", link, timeout=90)
+        print("Fixture link found", flush=True)
+        command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=90)
+        command("POST", path + "/element", result, timeout=90)
         print("PASS: Appium tapped the link in iPhone Safari and found the destination", flush=True)
     except Exception:
         try:
