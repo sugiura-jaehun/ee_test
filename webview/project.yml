@@ -1,0 +1,30 @@
+name: GoogleWebView
+options:
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    GENERATE_INFOPLIST_FILE: YES
+targets:
+  GoogleWebView:
+    type: application
+    platform: iOS
+    sources: [App]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: org.example.googlewebview
+  GoogleWebViewTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: GoogleWebView
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: org.example.googlewebview.tests
+schemes:
+  GoogleWebView:
+    build:
+      targets:
+        GoogleWebView: all
+        GoogleWebViewTests: [test]
+    test:
+      targets: [GoogleWebViewTests]
