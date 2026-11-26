@@ -1,0 +1,27 @@
+name: iPhone Safari native UI smoke test
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Prepare the test project
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+          xcodegen generate --spec native/project.yml
+      - name: Tap a link in iPhone Safari
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+          python3 -u -c 'from http.server import ThreadingHTTPServer; from safari_smoke import TestPage; ThreadingHTTPServer(("127.0.0.1", 8765), TestPage).serve_forever()' &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          curl --retry 5 --retry-connrefused --silent --show-error --fail http://127.0.0.1:8765/ > /dev/null
+          xcodebuild test -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' \
+            -parallel-testing-enabled NO -quiet
