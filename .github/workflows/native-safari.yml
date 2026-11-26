@@ -20,18 +20,10 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/webview-build" -quiet
       - name: Install the app and search inside its WebView
         run: |
-          udid=$(xcrun simctl list devices available -j | python3 -c '
-          import json, sys
-          devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
-          print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
-          ')
-          xcrun simctl bootstatus "$udid" -b
           app="$RUNNER_TEMP/webview-build/Build/Products/Debug-iphonesimulator/GoogleWebView.app"
-          xcrun simctl install "$udid" "$app"
-          xcrun simctl get_app_container "$udid" org.example.googlewebview app
           ditto -c -k --keepParent "$app" "$RUNNER_TEMP/GoogleWebView-simulator.zip"
           xcodebuild test-without-building -project webview/GoogleWebView.xcodeproj -scheme GoogleWebView \
-            -destination "platform=iOS Simulator,id=$udid" -parallel-testing-enabled NO \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' -parallel-testing-enabled NO \
             -derivedDataPath "$RUNNER_TEMP/webview-build" -resultBundlePath "$RUNNER_TEMP/WebViewTests.xcresult"
       - name: Upload the simulator app
         if: always()
