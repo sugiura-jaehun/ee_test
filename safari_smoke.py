@@ -1,5 +1,4 @@
 import json
-import os
 import subprocess
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -59,7 +58,8 @@ def run_test(fixture_url):
         "browserName": "safari",
         "platformName": "iOS",
         "safari:useSimulator": True,
-        "safari:deviceUDID": os.environ["IOS_UDID"],
+        "safari:deviceName": "iPhone 17",
+        "platformVersion": "27.2",
     }}}, timeout=75)
     print("iPhone Safari session created", flush=True)
     path = f'/session/{session["sessionId"]}'

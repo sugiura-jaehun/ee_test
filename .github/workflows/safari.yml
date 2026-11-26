@@ -15,16 +15,18 @@ jobs:
       - name: Boot an iPhone simulator
         timeout-minutes: 6
         run: |
+          sudo xcode-select --switch "$DEVELOPER_DIR"
           xcodebuild -version
           udid=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-27-2"]
           print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
           ')
-          echo "IOS_UDID=$udid" >> "$GITHUB_ENV"
           time xcrun simctl bootstatus "$udid" -b
       - name: Click a link in iPhone Safari
         timeout-minutes: 4
         run: |
+          /usr/bin/safaridriver --version
+          xcrun simctl list devices booted
           sudo /usr/bin/safaridriver --enable
           time python3 safari_smoke.py
