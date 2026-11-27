@@ -3,6 +3,7 @@ import subprocess
 from http.server import ThreadingHTTPServer
 from threading import Event, Thread
 from xml.etree import ElementTree
+from pathlib import Path
 
 from safari_smoke import ELEMENT_KEY, TestPage, command, wait_for_driver
 
@@ -92,10 +93,16 @@ def run_test(fixture_url):
                 raise AssertionError("The fixture link is missing or hidden in Safari's UI tree")
             x = float(link.attrib["x"]) + float(link.attrib["width"]) / 2
             y = float(link.attrib["y"]) + float(link.attrib["height"]) / 2
+            Path("diagnostics").mkdir(exist_ok=True)
+            subprocess.run(["xcrun", "simctl", "io", os.environ["SIMULATOR_UDID"], "screenshot", "diagnostics/before.png"], check=True, timeout=60)
+            Path("diagnostics/before.xml").write_text(source)
             print(f"Tapping the center of the visible fixture link ({x:g}, {y:g})", flush=True)
             command("POST", path + "/execute/sync", {
                 "script": "mobile: tap", "args": [{"x": x, "y": y}],
             }, timeout=120)
+            subprocess.run(["xcrun", "simctl", "io", os.environ["SIMULATOR_UDID"], "screenshot", "diagnostics/after.png"], check=True, timeout=60)
+            after_source = command("GET", path + "/source", timeout=120)
+            Path("diagnostics/after.xml").write_text(after_source)
             if not destination_loaded.wait(timeout=45):
                 raise AssertionError("Safari did not request the destination after the Appium tap")
             source = command("GET", path + "/source", timeout=120)

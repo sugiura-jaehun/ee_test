@@ -53,3 +53,10 @@ jobs:
               tail -65 "$log"
             fi
           done
+      - name: Upload synthetic-page screenshots and UI trees
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-safari-diagnostics
+          path: diagnostics/
+          if-no-files-found: ignore
