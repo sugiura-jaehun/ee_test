@@ -57,6 +57,17 @@ jobs:
         run: |
           HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
           xcodegen generate --spec native/project.yml
+      - name: Restore the standalone FFmpeg package
+        id: ffmpeg-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ios-ffmpeg
+          key: ios-video-ffmpeg-imageio-0.6.0-${{ runner.os }}-${{ runner.arch }}
+      - name: Prepare the standalone FFmpeg package
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 -m pip install --disable-pip-version-check --only-binary=:all: \
+            --no-deps --target "$RUNNER_TEMP/ios-ffmpeg" imageio-ffmpeg==0.6.0
       - name: Run recorded Safari smoke test
         env:
           SMOKE_BROWSER: safari-webdriver
@@ -69,7 +80,8 @@ jobs:
         run: |
           original="$RUNNER_TEMP/iphone-safari-original.mp4"
           [[ -s "$original" ]] || exit 0
-          command -v ffmpeg >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg
+          FFMPEG_BIN=$(PYTHONPATH="$RUNNER_TEMP/ios-ffmpeg" python3 -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')
+          export FFMPEG_BIN
           output="$RUNNER_TEMP/ios-appium-recording/iphone-safari.mp4"
           bash ios-appium/compress-recording.sh "$original" "$RUNNER_TEMP/iphone-safari-compressed.mp4"
           mv "$RUNNER_TEMP/iphone-safari-compressed.mp4" "$output"
