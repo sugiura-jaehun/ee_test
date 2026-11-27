@@ -14,6 +14,13 @@ final class SafariTests: XCTestCase {
             if let title = try toolbarTipTitle(in: safari) {
                 let frame = safari.frame
                 let closeY = 1 - title.midY
+                let closeCoordinate = safari.coordinate(withNormalizedOffset: CGVector(dx: 0.91, dy: closeY))
+                closeCoordinate.tap()
+                if try waitForToolbarTipToDisappear(in: safari) {
+                    print("Safari toolbar tip dismissed by coordinate tap")
+                    return
+                }
+
                 let expectedCenter = CGPoint(x: frame.minX + frame.width * 0.91,
                                              y: frame.minY + frame.height * closeY)
                 let closeButtons = safari.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Dismiss"]))
@@ -22,17 +29,12 @@ final class SafariTests: XCTestCase {
                         && abs($0.frame.midX - expectedCenter.x) < 40
                 }) {
                     close.tap()
-                } else {
-                    // Safari's tooltip close button may be missing from its accessibility tree.
-                    safari.coordinate(withNormalizedOffset: CGVector(dx: 0.91, dy: closeY)).tap()
+                } else if let title = try toolbarTipTitle(in: safari) {
+                    safari.coordinate(withNormalizedOffset: CGVector(dx: 0.91, dy: 1 - title.midY)).tap()
                 }
-                let deadline = Date().addingTimeInterval(8)
-                while Date() < deadline {
-                    if try toolbarTipTitle(in: safari) == nil {
-                        print("Safari toolbar tip dismissed")
-                        return
-                    }
-                    Thread.sleep(forTimeInterval: 0.5)
+                if try waitForToolbarTipToDisappear(in: safari) {
+                    print("Safari toolbar tip dismissed on retry")
+                    return
                 }
                 XCTFail("Safari toolbar tip remained visible after tapping Close")
                 return
@@ -42,14 +44,30 @@ final class SafariTests: XCTestCase {
         print("Safari toolbar tip was not visible")
     }
 
+    private func waitForToolbarTipToDisappear(in safari: XCUIApplication) throws -> Bool {
+        let deadline = Date().addingTimeInterval(8)
+        repeat {
+            if try toolbarTipTitle(in: safari) == nil {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.5)
+        } while Date() < deadline
+        return false
+    }
+
     private func toolbarTipTitle(in safari: XCUIApplication) throws -> CGRect? {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .fast
         let screenshot = safari.screenshot()
         try VNImageRequestHandler(data: screenshot.pngRepresentation).perform([request])
-        return request.results?.first {
-            $0.topCandidates(1).first?.string.localizedCaseInsensitiveContains("View Bookmarks") == true
-        }?.boundingBox
+        for observation in request.results ?? [] {
+            guard let text = observation.topCandidates(1).first,
+                  let titleRange = text.string.range(of: "View Bookmarks", options: .caseInsensitive) else {
+                continue
+            }
+            return try text.boundingBox(for: titleRange)?.boundingBox ?? observation.boundingBox
+        }
+        return nil
     }
 
     func testTapLinkInSafari() throws {
