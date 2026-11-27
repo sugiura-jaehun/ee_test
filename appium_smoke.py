@@ -41,6 +41,7 @@ def run_test(fixture_url):
     caps.pop("appium:bundleId")
     caps.pop("appium:initialDeeplinkUrl")
     caps["appium:noReset"] = True
+    caps["appium:settings[defaultActiveApplication]"] = "com.apple.mobilesafari"
     print(f"Starting an Appium session with {os.environ['APPIUM_MODE']}", flush=True)
     session = command("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=660)
     path = f'/session/{session["sessionId"]}'
@@ -60,11 +61,8 @@ def run_test(fixture_url):
             context = command("GET", path + "/context")
             if context != "NATIVE_APP":
                 raise AssertionError(f"Unexpected Appium context: {context}")
-            link = {
-                "using": "-ios predicate string",
-                "value": "type == 'XCUIElementTypeLink' AND label == 'Open result'",
-            }
-            result = {"using": "-ios predicate string", "value": "label == 'Link clicked'"}
+            link = {"using": "accessibility id", "value": "Open result"}
+            result = {"using": "accessibility id", "value": "Link clicked"}
         element = command("POST", path + "/element", link, timeout=90)
         print("Fixture link found", flush=True)
         command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=90)
@@ -74,7 +72,7 @@ def run_test(fixture_url):
         print("PASS: Appium tapped the link in iPhone Safari and found the destination", flush=True)
     except Exception:
         try:
-            print(command("GET", path + "/source", timeout=25), flush=True)
+            print(command("GET", path + "/source", timeout=90), flush=True)
         except Exception as error:
             print(f"Unable to read Safari's accessibility tree: {error}", flush=True)
         raise
