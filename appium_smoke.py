@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from http.server import ThreadingHTTPServer
 from threading import Event, Thread
 from xml.etree import ElementTree
@@ -87,8 +88,17 @@ def run_test(fixture_url):
             context = command("GET", path + "/context")
             if context != "NATIVE_APP":
                 raise AssertionError(f"Unexpected Appium context: {context}")
-            source = command("GET", path + "/source", timeout=120)
-            link = ElementTree.fromstring(source).find(".//XCUIElementTypeLink[@label='Open result']")
+            Path("diagnostics").mkdir(exist_ok=True)
+            deadline = time.monotonic() + 90
+            link = None
+            while time.monotonic() < deadline:
+                source = command("GET", path + "/source", timeout=120)
+                link = ElementTree.fromstring(source).find(".//XCUIElementTypeLink[@label='Open result']")
+                if link is not None and link.get("visible") == "true":
+                    break
+                time.sleep(3)
+            subprocess.run(["xcrun", "simctl", "io", os.environ["SIMULATOR_UDID"], "screenshot", "diagnostics/before.png"], check=True, timeout=60)
+            Path("diagnostics/before.xml").write_text(source)
             if link is None or link.get("visible") != "true":
                 raise AssertionError("The fixture link is missing or hidden in Safari's UI tree")
             x = float(link.attrib["x"]) + float(link.attrib["width"]) / 2
