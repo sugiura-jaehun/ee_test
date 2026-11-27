@@ -29,10 +29,27 @@ final class SafariTests: XCTestCase {
         safari.open(url)
 
         let link = safari.links[linkLabel].firstMatch
-        let destination = safari.staticTexts[destinationLabel].firstMatch
+        let webLinks = safari.webViews.links
+        let matchingLabels = webLinks.matching(NSPredicate(format: "label CONTAINS %@", destinationLabel))
+        let matchingChildren = webLinks.containing(.staticText, identifier: destinationLabel)
         XCTAssertTrue(link.waitForExistence(timeout: 60), "Start-page link was unavailable")
-        XCTAssertFalse(destination.exists, "Destination marker was already visible before the tap")
+        XCTAssertFalse(matchingLabels.firstMatch.exists || matchingChildren.firstMatch.exists,
+                       "Destination link was already present before the tap")
         link.tap()
-        XCTAssertTrue(destination.waitForExistence(timeout: 45), "Destination marker was unavailable after the tap")
+
+        // Start above Safari's bottom controls and first-run tips.
+        let scrollStart = safari.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.60))
+        let scrollEnd = safari.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.23))
+        _ = matchingLabels.firstMatch.waitForExistence(timeout: 8)
+        for scrollCount in 0...20 {
+            let candidates = matchingLabels.allElementsBoundByIndex + matchingChildren.allElementsBoundByIndex
+            if candidates.contains(where: { $0.isHittable }) {
+                return
+            }
+            if scrollCount < 20 {
+                scrollStart.press(forDuration: 0.05, thenDragTo: scrollEnd)
+            }
+        }
+        XCTFail("Destination link was not visible after scrolling")
     }
 }
