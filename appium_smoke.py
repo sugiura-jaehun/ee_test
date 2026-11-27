@@ -35,7 +35,7 @@ def capabilities(fixture_url):
         "appium:automationName": "XCUITest",
         "appium:udid": os.environ["SIMULATOR_UDID"],
         "appium:deviceName": "iPhone 17",
-        "appium:platformVersion": "26.5",
+        "appium:platformVersion": os.environ["SIM_IOS"],
         "appium:bundleId": "com.apple.mobilesafari",
         "appium:initialDeeplinkUrl": fixture_url,
         "appium:isHeadless": True,

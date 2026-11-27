@@ -1,10 +1,10 @@
-name: Appium iPhone Safari comparison
+name: Appium version comparison
 on: workflow_dispatch
 permissions:
   contents: read
 jobs:
   safari:
-    name: ${{ matrix.mode }} / ${{ matrix.runner }}
+    name: ${{ matrix.runner }} / Xcode ${{ matrix.xcode }} / iOS ${{ matrix.ios }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 24
     strategy:
@@ -13,8 +13,24 @@ jobs:
         include:
           - mode: xcuitest-attach
             runner: macos-26
+            xcode: "26.2"
+            ios: "26.2"
+          - mode: xcuitest-attach
+            runner: macos-26
+            xcode: "26.4.1"
+            ios: "26.4"
+          - mode: xcuitest-attach
+            runner: macos-26-intel
+            xcode: "26.2"
+            ios: "26.2"
+          - mode: xcuitest-attach
+            runner: xcode-27
+            xcode: "27.2"
+            ios: "27.2"
     env:
       APPIUM_MODE: ${{ matrix.mode }}
+      SIM_IOS: ${{ matrix.ios }}
+      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6
         with:
@@ -38,7 +54,9 @@ jobs:
           xcodebuild -version
           udid=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
-          devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
+          import os
+          runtime = "com.apple.CoreSimulator.SimRuntime.iOS-" + os.environ["SIM_IOS"].replace(".", "-")
+          devices = json.load(sys.stdin)["devices"][runtime]
           print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
           ')
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
