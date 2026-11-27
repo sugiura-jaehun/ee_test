@@ -64,6 +64,15 @@ jobs:
           SMOKE_START_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
           SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
         run: bash ios-appium/run-recorded-smoke.sh
+      - name: Compress the screen recording
+        if: always()
+        run: |
+          original="$RUNNER_TEMP/iphone-safari-original.mp4"
+          [[ -s "$original" ]] || exit 0
+          command -v ffmpeg >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg
+          output="$RUNNER_TEMP/ios-appium-recording/iphone-safari.mp4"
+          bash ios-appium/compress-recording.sh "$original" "$RUNNER_TEMP/iphone-safari-compressed.mp4"
+          mv "$RUNNER_TEMP/iphone-safari-compressed.mp4" "$output"
       - name: Upload recording and logs
         if: always()
         uses: actions/upload-artifact@v4

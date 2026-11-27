@@ -67,10 +67,33 @@ begin
 
   if browser.start_with?('safari')
     session.execute_script("arguments[0].scrollIntoView({ block: 'center' })", start_link)
+    session.execute_script(<<~JS, start_link)
+      const link = arguments[0];
+      sessionStorage.removeItem('smoke-touch-events');
+      for (const type of ['pointerdown', 'touchstart', 'click']) {
+        document.addEventListener(type, event => {
+          const events = JSON.parse(sessionStorage.getItem('smoke-touch-events') || '[]');
+          events.push({ type, hitLink: link.contains(event.target), trusted: event.isTrusted });
+          sessionStorage.setItem('smoke-touch-events', JSON.stringify(events));
+        }, { capture: true, once: true });
+      }
+    JS
   end
   puts 'Tapping the start link'
-  start_link.click
+  if browser == 'safari-webdriver'
+    actions = session.driver.browser.action
+    actions.add_pointer_input(:touch, 'finger')
+    actions.click(start_link.native, device: 'finger').perform
+  else
+    start_link.click
+  end
   unless session.has_current_path?(expected_path, ignore_query: true)
+    if browser.start_with?('safari')
+      events = session.evaluate_script("sessionStorage.getItem('smoke-touch-events')")
+      warn "Events seen by the page: #{events || 'none'}"
+      warn "Expected path: #{expected_path}; actual path: #{URI.parse(session.current_url).path}"
+      warn "Open windows: #{session.windows.size}"
+    end
     raise 'The browser did not reach the expected destination path after tapping the start link'
   end
   destination = session.find(:link, destination_label, exact: true, visible: :all, match: :first)

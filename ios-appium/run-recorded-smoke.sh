@@ -31,7 +31,7 @@ for attempt in {1..30}; do
 done
 curl --silent --fail http://127.0.0.1:4723/status > /dev/null
 
-xcrun simctl io "$SIMULATOR_UDID" recordVideo --codec h264 "$output/iphone-safari.mp4" \
+xcrun simctl io "$SIMULATOR_UDID" recordVideo --codec h264 "$RUNNER_TEMP/iphone-safari-original.mp4" \
   > "$output/record.log" 2>&1 &
 record_pid=$!
 
