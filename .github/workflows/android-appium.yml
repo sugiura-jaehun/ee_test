@@ -58,36 +58,14 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Restore clean Android emulator and SDK image
+      - name: Restore Android emulator and SDK image
         id: emulator-cache
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.android/avd
             ${{ env.ANDROID_SDK_CACHE_ROOT }}/system-images/android-34/google_apis_playstore/x86_64
             ${{ env.ANDROID_SDK_CACHE_ROOT }}/emulator
-          key: android-api34-playstore-pixel6-x64-ubuntu2404-v1
-      - name: Create clean emulator snapshot
-        if: steps.emulator-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis_playstore
-          arch: x86_64
-          profile: pixel_6
-          avd-name: appium-pixel
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          script: adb shell getprop sys.boot_completed
-      - name: Save clean emulator snapshot before testing
-        if: steps.emulator-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.android/avd
-            ${{ env.ANDROID_SDK_CACHE_ROOT }}/system-images/android-34/google_apis_playstore/x86_64
-            ${{ env.ANDROID_SDK_CACHE_ROOT }}/emulator
-          key: ${{ steps.emulator-cache.outputs.cache-primary-key }}
+          key: android-sdk-api34-playstore-x64-ubuntu2404-v1
       - name: Run recorded Chrome smoke test
         uses: reactivecircus/android-emulator-runner@v2
         env:
@@ -100,10 +78,18 @@ jobs:
           arch: x86_64
           profile: pixel_6
           avd-name: appium-pixel
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
+          emulator-boot-timeout: 120
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
           script: bash android-appium/run-recorded-smoke.sh
+      - name: Save Android emulator and SDK image
+        if: always() && steps.emulator-cache.outputs.cache-primary-key && steps.emulator-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.ANDROID_SDK_CACHE_ROOT }}/system-images/android-34/google_apis_playstore/x86_64
+            ${{ env.ANDROID_SDK_CACHE_ROOT }}/emulator
+          key: ${{ steps.emulator-cache.outputs.cache-primary-key }}
       - name: Check for downloaded ChromeDrivers
         id: downloaded-chromedriver
         if: always() && steps.chromedriver-cache.outputs.cache-primary-key && steps.chromedriver-cache.outputs.cache-hit != 'true'
