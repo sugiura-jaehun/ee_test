@@ -19,6 +19,7 @@ jobs:
           TEST_RUNNER_SMOKE_START_URL: ${{ secrets.ONCE_SAFARI_START_URL }}
           TEST_RUNNER_SMOKE_LINK_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
           TEST_RUNNER_SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
+          RECORD_VIDEO: ${{ github.ref_name == 'xctest-live-video' }}
         run: |
           xcodebuild -version
           xcrun simctl list devices available
@@ -31,9 +32,11 @@ jobs:
           print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
           ')
           xcrun simctl bootstatus "$udid" -b
-          xcrun simctl io "$udid" recordVideo --codec h264 "$RUNNER_TEMP/safari-test.mp4" > "$RUNNER_TEMP/record.log" 2>&1 &
-          record_pid=$!
-          trap 'kill -INT "$record_pid" 2>/dev/null || true; wait "$record_pid" 2>/dev/null || true' EXIT
+          if [ "$RECORD_VIDEO" = "true" ]; then
+            xcrun simctl io "$udid" recordVideo --codec h264 "$RUNNER_TEMP/safari-test.mp4" > "$RUNNER_TEMP/record.log" 2>&1 &
+            record_pid=$!
+            trap 'kill -INT "$record_pid" 2>/dev/null || true; wait "$record_pid" 2>/dev/null || true' EXIT
+          fi
           log="$RUNNER_TEMP/live-safari-test.log"
           if xcodebuild test -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
             -destination "platform=iOS Simulator,id=$udid" \
@@ -45,7 +48,7 @@ jobs:
             exit 1
           fi
       - name: Upload screen recording
-        if: always()
+        if: ${{ always() && github.ref_name == 'xctest-live-video' }}
         uses: actions/upload-artifact@v4
         with:
           name: safari-test-recording
