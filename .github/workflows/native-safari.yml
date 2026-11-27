@@ -25,9 +25,18 @@ jobs:
           : "${TEST_RUNNER_SMOKE_START_URL:?Missing test URL}"
           : "${TEST_RUNNER_SMOKE_LINK_LABEL:?Missing link label}"
           : "${TEST_RUNNER_SMOKE_DESTINATION_LABEL:?Missing destination label}"
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
+          print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
+          ')
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl io "$udid" recordVideo --codec h264 "$RUNNER_TEMP/safari-test.mp4" > "$RUNNER_TEMP/record.log" 2>&1 &
+          record_pid=$!
+          trap 'kill -INT "$record_pid" 2>/dev/null || true; wait "$record_pid" 2>/dev/null || true' EXIT
           log="$RUNNER_TEMP/live-safari-test.log"
           if xcodebuild test -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' \
+            -destination "platform=iOS Simulator,id=$udid" \
             -parallel-testing-enabled NO \
             -only-testing:SafariTests/SafariTests/testTapLinkOnConfiguredSite -quiet > "$log" 2>&1; then
             echo "PASS: Safari tapped the configured link and displayed the destination."
@@ -35,3 +44,10 @@ jobs:
             rg -o 'Start-page link was unavailable|Destination marker was already visible before the tap|Destination marker was unavailable after the tap|\*\* TEST FAILED \*\*' "$log" || true
             exit 1
           fi
+      - name: Upload screen recording
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safari-test-recording
+          path: ${{ runner.temp }}/safari-test.mp4
+          if-no-files-found: warn
