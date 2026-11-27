@@ -1,0 +1,20 @@
+plugins {
+    id 'com.android.application' version '8.7.3'
+}
+
+android {
+    namespace 'example.chromesmoke'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'example.chromesmoke'
+        minSdk 23
+        targetSdk 34
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+}
+
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+}
