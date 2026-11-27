@@ -6,25 +6,51 @@ start_url = ENV.fetch('SMOKE_START_URL')
 start_label = ENV.fetch('SMOKE_START_LABEL')
 destination_label = ENV.fetch('SMOKE_DESTINATION_LABEL')
 
-Capybara.register_driver(:android_appium) do |app|
-  capabilities = Selenium::WebDriver::Remote::Capabilities.new(
+browser = ENV.fetch('SMOKE_BROWSER', 'chrome')
+capabilities = case browser
+when 'safari'
+  {
+    'platformName' => 'iOS',
+    'browserName' => 'Safari',
+    'appium:automationName' => 'XCUITest',
+    'appium:udid' => ENV.fetch('SIMULATOR_UDID'),
+    'appium:deviceName' => 'iPhone 17',
+    'appium:platformVersion' => '26.5',
+    'appium:safariInitialUrl' => start_url,
+    'appium:webviewConnectTimeout' => 25_000,
+    'appium:webviewConnectRetries' => 50,
+    'appium:wdaLaunchTimeout' => 360_000,
+    'appium:wdaStartupRetries' => 1,
+    'appium:noReset' => true
+  }
+when 'chrome'
+  {
     'platformName' => 'Android',
     'browserName' => 'Chrome',
     'appium:automationName' => 'UiAutomator2',
     'appium:udid' => ENV.fetch('ANDROID_SERIAL'),
     'appium:chromedriverExecutableDir' => ENV.fetch('CHROMEDRIVER_CACHE_DIR'),
     'appium:noReset' => true
-  )
+  }
+else
+  raise "Unsupported smoke-test browser: #{browser}"
+end
+
+Capybara.register_driver(:mobile_appium) do |app|
+  http = Selenium::WebDriver::Remote::Http::Default.new
+  http.read_timeout = 540 if browser == 'safari'
   Capybara::Selenium::Driver.new(app, browser: :remote,
                                     url: 'http://127.0.0.1:4723',
-                                    capabilities: [capabilities])
+                                    http_client: http,
+                                    capabilities: [Selenium::WebDriver::Remote::Capabilities.new(capabilities)])
 end
 
 Capybara.default_max_wait_time = 35
-session = Capybara::Session.new(:android_appium)
+session = Capybara::Session.new(:mobile_appium)
+$stdout.sync = true
 
 begin
-  puts 'Opening the start page in Android Chrome'
+  puts "Opening the start page in #{browser}"
   session.visit(start_url)
   start_link = session.find(:link, start_label, exact: true, match: :first)
   start_page = URI.parse(session.current_url)
@@ -34,7 +60,7 @@ begin
   puts 'Tapping the start link'
   start_link.click
   unless session.has_current_path?(expected_path, ignore_query: true)
-    raise 'Chrome did not reach the expected destination path after tapping the start link'
+    raise 'The browser did not reach the expected destination path after tapping the start link'
   end
   destination = session.find(:link, destination_label, exact: true, visible: :all, match: :first)
   puts 'Scrolling to the consultation link'

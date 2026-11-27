@@ -34,4 +34,4 @@ curl --silent --fail http://127.0.0.1:4723/status > /dev/null
 adb shell screenrecord --bit-rate 4000000 --time-limit 180 /sdcard/appium-smoke.mp4 &
 record_pid=$!
 export BUNDLE_GEMFILE="$PWD/android-appium/Gemfile"
-timeout 160s bundle exec ruby android-appium/chrome_smoke.rb 2>&1 | tee "$output/test.log"
+timeout 160s bundle exec ruby android-appium/mobile_smoke.rb 2>&1 | tee "$output/test.log"

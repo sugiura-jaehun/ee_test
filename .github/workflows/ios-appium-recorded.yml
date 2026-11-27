@@ -1,0 +1,68 @@
+name: iPhone Safari with Capybara and Appium
+on:
+  push:
+    branches: [ios-appium-video]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: android-appium
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ios-appium/package-lock.json
+      - name: Install Appium
+        run: |
+          npm ci --prefix ios-appium
+          echo "APPIUM_HOME=$RUNNER_TEMP/appium-home" >> "$GITHUB_ENV"
+      - name: Cache XCUITest driver
+        id: driver-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.APPIUM_HOME }}
+          key: ios-appium4-xcuitest13.8.0-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ios-appium/package-lock.json') }}
+      - name: Install XCUITest driver
+        if: steps.driver-cache.outputs.cache-hit != 'true'
+        run: ios-appium/node_modules/.bin/appium driver install xcuitest@13.8.0
+      - name: Save XCUITest driver
+        if: steps.driver-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.APPIUM_HOME }}
+          key: ${{ steps.driver-cache.outputs.cache-primary-key }}
+      - name: Resolve the iPhone 17 simulator
+        run: |
+          xcodebuild -version
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
+          print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
+          ')
+          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+      - name: Run recorded Safari smoke test
+        env:
+          SMOKE_START_URL: ${{ secrets.ONCE_SAFARI_START_URL }}
+          SMOKE_START_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
+          SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
+        run: bash ios-appium/run-recorded-smoke.sh
+      - name: Upload recording and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-appium-recording
+          path: ${{ runner.temp }}/ios-appium-recording/
+          if-no-files-found: warn

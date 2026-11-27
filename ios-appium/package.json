@@ -1,0 +1,7 @@
+{
+  "name": "ios-appium-smoke",
+  "private": true,
+  "dependencies": {
+    "appium": "4.0.1"
+  }
+}
