@@ -44,7 +44,7 @@ jobs:
             -only-testing:SafariTests/SafariTests/testTapLinkOnConfiguredSite -quiet > "$log" 2>&1; then
             echo "PASS: Safari tapped the configured link and displayed the destination."
           else
-            rg -o 'Start-page link was unavailable|Destination marker was already visible before the tap|Destination marker was unavailable after the tap|\*\* TEST FAILED \*\*' "$log" || true
+            grep -E 'Start-page link was unavailable|Destination marker was already visible before the tap|Destination marker was unavailable after the tap|\*\* TEST FAILED \*\*' "$log" || cat "$log"
             exit 1
           fi
       - name: Upload screen recording
