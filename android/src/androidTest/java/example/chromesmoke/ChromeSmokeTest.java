@@ -1,6 +1,7 @@
 package example.chromesmoke;
 
 import android.os.Bundle;
+import android.os.SystemClock;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
@@ -51,10 +52,20 @@ public class ChromeSmokeTest {
 
     private UiObject2 waitForStartLink(UiDevice device, String label, String startUrl)
             throws java.io.IOException {
-        long deadline = android.os.SystemClock.elapsedRealtime() + 45_000;
+        long deadline = SystemClock.elapsedRealtime() + 55_000;
         openChrome(device, startUrl);
+        long retryAt = SystemClock.elapsedRealtime() + 5_000;
         boolean openAgain = false;
-        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+        int startPageScrolls = 0;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (!CHROME.equals(device.getCurrentPackageName())) {
+                if (SystemClock.elapsedRealtime() >= retryAt) {
+                    openChrome(device, startUrl);
+                    retryAt = SystemClock.elapsedRealtime() + 5_000;
+                }
+                SystemClock.sleep(500);
+                continue;
+            }
             UiObject2 link = findText(device, label);
             if (link != null) {
                 return link;
@@ -75,8 +86,16 @@ public class ChromeSmokeTest {
             if (!handledPrompt && openAgain && device.hasObject(By.res(CHROME, "url_bar"))) {
                 openChrome(device, startUrl);
                 openAgain = false;
+            } else if (!handledPrompt && !openAgain && startPageScrolls < 10
+                    && device.hasObject(By.clazz("android.webkit.WebView"))
+                    && SystemClock.elapsedRealtime() >= retryAt) {
+                int x = device.getDisplayWidth() / 2;
+                int height = device.getDisplayHeight();
+                device.swipe(x, height * 76 / 100, x, height * 28 / 100, 18);
+                startPageScrolls++;
+                retryAt = SystemClock.elapsedRealtime() + 1_500;
             }
-            android.os.SystemClock.sleep(500);
+            SystemClock.sleep(500);
         }
         return null;
     }
