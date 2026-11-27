@@ -59,7 +59,7 @@ jobs:
           xcodegen generate --spec native/project.yml
       - name: Restore the standalone FFmpeg package
         id: ffmpeg-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/ios-ffmpeg
           key: ios-video-ffmpeg-imageio-0.6.0-${{ runner.os }}-${{ runner.arch }}
@@ -68,6 +68,12 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check --only-binary=:all: \
             --no-deps --target "$RUNNER_TEMP/ios-ffmpeg" imageio-ffmpeg==0.6.0
+      - name: Save the standalone FFmpeg package
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ios-ffmpeg
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
       - name: Run recorded Safari smoke test
         env:
           SMOKE_BROWSER: safari-webdriver
