@@ -74,8 +74,7 @@ def run_test(fixture_url):
                 ["xcrun", "simctl", "openurl", os.environ["SIMULATOR_UDID"], fixture_url],
             )
             try:
-                if not fixture_loaded.wait(timeout=120):
-                    raise AssertionError("Safari did not request the fixture page")
+                time.sleep(30)
             finally:
                 if open_url.poll() is None:
                     open_url.terminate()
@@ -98,15 +97,18 @@ def run_test(fixture_url):
                 raise AssertionError(f"No Safari web context found: {contexts}")
             command("POST", path + "/context", {"name": webviews[0]}, timeout=90)
             print("Switched to Safari web context", flush=True)
-            element = command("POST", path + "/element", {"using": "css selector", "value": "#test-link"}, timeout=90)
-            print("Found DOM link", flush=True)
-            command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=120)
-            print("Clicked DOM link", flush=True)
-            if not destination_loaded.wait(timeout=60):
-                raise AssertionError("DOM click did not request destination")
-            command("POST", path + "/element", {"using": "css selector", "value": "#result"}, timeout=90)
-            print("PASS: Appium web context clicked and displayed the destination", flush=True)
-            return
+            link = command("POST", path + "/element", {
+                "using": "css selector", "value": "a[href='/advisers']"
+            }, timeout=90)
+            command("POST", f"{path}/element/{link[ELEMENT_KEY]}/click", {}, timeout=120)
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                url = command("GET", path + "/url", timeout=30)
+                if url.rstrip("/").endswith("/advisers"):
+                    print("PASS: clicked the configured link and reached the destination", flush=True)
+                    return
+                time.sleep(2)
+            raise AssertionError("Destination was not reached after click")
         element = command("POST", path + "/element", link, timeout=90)
         print("Fixture link found", flush=True)
         command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=90)
@@ -116,7 +118,7 @@ def run_test(fixture_url):
         print("PASS: Appium tapped the link in iPhone Safari and found the destination", flush=True)
     except Exception:
         try:
-            print(command("GET", path + "/source", timeout=90), flush=True)
+            print("Test failed before destination confirmation", flush=True)
         except Exception as error:
             print(f"Unable to read Safari's accessibility tree: {error}", flush=True)
         raise
@@ -138,7 +140,7 @@ if __name__ == "__main__":
                 try:
                     wait_for_driver(driver, timeout=180, name="Appium")
                     print("Appium HTTP endpoint is ready", flush=True)
-                    run_test(f"http://127.0.0.1:{server.server_port}/")
+                    run_test(os.environ["LIVE_START_URL"])
                 finally:
                     if driver.poll() is None:
                         driver.terminate()

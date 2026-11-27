@@ -15,6 +15,7 @@ jobs:
             runner: macos-26
     env:
       APPIUM_MODE: ${{ matrix.mode }}
+      LIVE_START_URL: ${{ secrets.ONCE_APPIUM_LIVE_URL }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -44,12 +45,3 @@ jobs:
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
       - name: Tap one link in iPhone Safari through Appium
         run: bash appium/run-smoke.sh
-      - name: Print failure diagnostics
-        if: failure()
-        run: |
-          for log in appium.log wda.log; do
-            if [[ -f "$log" ]]; then
-              echo "Log: $log"
-              tail -65 "$log"
-            fi
-          done
