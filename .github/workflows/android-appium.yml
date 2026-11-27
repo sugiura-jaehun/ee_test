@@ -1,0 +1,119 @@
+name: Android Chrome with Capybara and Appium
+on:
+  push:
+    branches: [android-appium-video]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: android-appium
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android-appium/package-lock.json
+      - name: Install Appium
+        run: npm ci --prefix android-appium
+      - name: Configure cache paths
+        run: |
+          printf '%s\n' "APPIUM_HOME=$RUNNER_TEMP/appium-home" \
+            "CHROMEDRIVER_CACHE_DIR=$RUNNER_TEMP/appium-chromedrivers" \
+            "ANDROID_SDK_CACHE_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+      - name: Cache installed Appium driver
+        id: appium-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.APPIUM_HOME }}
+          key: appium-uiautomator2-6.7.1-node22-v1-${{ runner.os }}-${{ hashFiles('android-appium/package-lock.json') }}
+      - name: Install UiAutomator2
+        if: steps.appium-cache.outputs.cache-hit != 'true'
+        run: android-appium/node_modules/.bin/appium driver install uiautomator2@6.7.1
+      - name: Save installed Appium driver
+        if: steps.appium-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.APPIUM_HOME }}
+          key: ${{ steps.appium-cache.outputs.cache-primary-key }}
+      - name: Cache downloaded ChromeDrivers
+        id: chromedriver-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CHROMEDRIVER_CACHE_DIR }}
+          key: android-chromedriver-api34-v1-${{ runner.os }}
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Restore clean Android emulator and SDK image
+        id: emulator-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd
+            ${{ env.ANDROID_SDK_CACHE_ROOT }}/system-images/android-34/google_apis_playstore/x86_64
+            ${{ env.ANDROID_SDK_CACHE_ROOT }}/emulator
+          key: android-api34-playstore-pixel6-x64-ubuntu2404-v1
+      - name: Create clean emulator snapshot
+        if: steps.emulator-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          avd-name: appium-pixel
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: adb shell getprop sys.boot_completed
+      - name: Save clean emulator snapshot before testing
+        if: steps.emulator-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd
+            ${{ env.ANDROID_SDK_CACHE_ROOT }}/system-images/android-34/google_apis_playstore/x86_64
+            ${{ env.ANDROID_SDK_CACHE_ROOT }}/emulator
+          key: ${{ steps.emulator-cache.outputs.cache-primary-key }}
+      - name: Run recorded Chrome smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SMOKE_START_URL: ${{ secrets.ONCE_SAFARI_START_URL }}
+          SMOKE_START_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
+          SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          avd-name: appium-pixel
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
+          disable-animations: true
+          script: bash android-appium/run-recorded-smoke.sh
+      - name: Save downloaded ChromeDrivers
+        if: always() && steps.chromedriver-cache.outputs.cache-primary-key && steps.chromedriver-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CHROMEDRIVER_CACHE_DIR }}
+          key: ${{ steps.chromedriver-cache.outputs.cache-primary-key }}
+      - name: Upload recording and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-appium-recording
+          path: ${{ runner.temp }}/android-appium-recording/
+          if-no-files-found: warn

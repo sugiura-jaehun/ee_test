@@ -1,0 +1,7 @@
+{
+  "name": "android-appium-smoke",
+  "private": true,
+  "dependencies": {
+    "appium": "3.1.0"
+  }
+}
