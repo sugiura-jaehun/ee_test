@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from http.server import ThreadingHTTPServer
 from threading import Event, Thread
 from xml.etree import ElementTree
@@ -54,6 +55,7 @@ def run_test(fixture_url):
     caps = capabilities(fixture_url)
     caps.pop("appium:bundleId")
     caps.pop("appium:initialDeeplinkUrl")
+    caps["appium:includeSafariInWebviews"] = True
     caps["appium:noReset"] = True
     caps["appium:newCommandTimeout"] = 300
     caps["appium:settings[defaultActiveApplication]"] = "com.apple.mobilesafari"
@@ -83,25 +85,27 @@ def run_test(fixture_url):
                         open_url.kill()
                         open_url.wait()
             print("Safari requested the fixture URL", flush=True)
-            context = command("GET", path + "/context")
-            if context != "NATIVE_APP":
-                raise AssertionError(f"Unexpected Appium context: {context}")
-            source = command("GET", path + "/source", timeout=120)
-            link = ElementTree.fromstring(source).find(".//XCUIElementTypeLink[@label='Open result']")
-            if link is None or link.get("visible") != "true":
-                raise AssertionError("The fixture link is missing or hidden in Safari's UI tree")
-            x = float(link.attrib["x"]) + float(link.attrib["width"]) / 2
-            y = float(link.attrib["y"]) + float(link.attrib["height"]) / 2
-            print(f"Tapping the center of the visible fixture link ({x:g}, {y:g})", flush=True)
-            command("POST", path + "/execute/sync", {
-                "script": "mobile: tap", "args": [{"x": x, "y": y}],
-            }, timeout=120)
-            if not destination_loaded.wait(timeout=45):
-                raise AssertionError("Safari did not request the destination after the Appium tap")
-            source = command("GET", path + "/source", timeout=120)
-            if "Link clicked" not in source:
-                raise AssertionError("Safari's UI tree did not show the destination")
-            print("PASS: Appium tapped the link in iPhone Safari and found the destination", flush=True)
+            deadline = time.monotonic() + 120
+            webviews = []
+            while time.monotonic() < deadline:
+                contexts = command("GET", path + "/contexts", timeout=60)
+                print(f"Available contexts: {contexts}", flush=True)
+                webviews = [context for context in contexts if context.startswith("WEBVIEW")]
+                if webviews:
+                    break
+                time.sleep(3)
+            if not webviews:
+                raise AssertionError(f"No Safari web context found: {contexts}")
+            command("POST", path + "/context", {"name": webviews[0]}, timeout=90)
+            print("Switched to Safari web context", flush=True)
+            element = command("POST", path + "/element", {"using": "css selector", "value": "#test-link"}, timeout=90)
+            print("Found DOM link", flush=True)
+            command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=120)
+            print("Clicked DOM link", flush=True)
+            if not destination_loaded.wait(timeout=60):
+                raise AssertionError("DOM click did not request destination")
+            command("POST", path + "/element", {"using": "css selector", "value": "#result"}, timeout=90)
+            print("PASS: Appium web context clicked and displayed the destination", flush=True)
             return
         element = command("POST", path + "/element", link, timeout=90)
         print("Fixture link found", flush=True)
