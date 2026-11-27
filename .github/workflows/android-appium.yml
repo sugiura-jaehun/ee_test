@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.CHROMEDRIVER_CACHE_DIR }}
-          key: android-chromedriver-api34-v1-${{ runner.os }}
+          key: android-chromedriver-api34-v2-${{ runner.os }}
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -104,8 +104,15 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
           disable-animations: true
           script: bash android-appium/run-recorded-smoke.sh
-      - name: Save downloaded ChromeDrivers
+      - name: Check for downloaded ChromeDrivers
+        id: downloaded-chromedriver
         if: always() && steps.chromedriver-cache.outputs.cache-primary-key && steps.chromedriver-cache.outputs.cache-hit != 'true'
+        run: |
+          if find "$CHROMEDRIVER_CACHE_DIR" -type f -name 'chromedriver*' -executable -print -quit | grep -q .; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save downloaded ChromeDrivers
+        if: always() && steps.downloaded-chromedriver.outputs.present == 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ env.CHROMEDRIVER_CACHE_DIR }}

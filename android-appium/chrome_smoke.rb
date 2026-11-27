@@ -1,5 +1,4 @@
 require 'capybara'
-require 'capybara/selenium'
 require 'selenium-webdriver'
 
 start_url = ENV.fetch('SMOKE_START_URL')
