@@ -53,6 +53,10 @@ jobs:
           print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
           ')
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
+      - name: Prepare the native Safari setup test
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+          xcodegen generate --spec native/project.yml
       - name: Run recorded Safari smoke test
         env:
           SMOKE_BROWSER: safari-webdriver
