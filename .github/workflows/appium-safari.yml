@@ -11,10 +11,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - mode: xcuitest-attach
-            runner: macos-26
-          - mode: xcuitest-attach
-            runner: macos-26-intel
           - mode: safari-driver
             runner: macos-26
     env:

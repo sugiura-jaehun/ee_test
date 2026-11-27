@@ -60,6 +60,8 @@ def run_test(fixture_url):
         element = command("POST", path + "/element", link, timeout=90)
         print("Fixture link found", flush=True)
         command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=90)
+        if caps["appium:automationName"] == "Safari":
+            print(f"URL after tap: {command('GET', path + '/url')}", flush=True)
         command("POST", path + "/element", result, timeout=90)
         print("PASS: Appium tapped the link in iPhone Safari and found the destination", flush=True)
     except Exception:

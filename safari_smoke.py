@@ -7,7 +7,15 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 TEST_PAGES = {
-    "/": b'<!doctype html><title>Link test</title><a id="test-link" href="/clicked">Open result</a>',
+    "/": b"""<!doctype html>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Link test</title>
+        <style>
+            body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+            a { padding: 28px 44px; background: #ddd; color: #111; font: 22px system-ui; }
+        </style>
+        <a id="test-link" href="/clicked">Open result</a>
+        """,
     "/clicked": b'<!doctype html><title>Click result</title><h1 id="result">Link clicked</h1>',
 }
 ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf"
