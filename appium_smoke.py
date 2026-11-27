@@ -1,9 +1,23 @@
 import os
 import subprocess
 from http.server import ThreadingHTTPServer
-from threading import Thread
+from threading import Event, Thread
+from xml.etree import ElementTree
 
 from safari_smoke import ELEMENT_KEY, TestPage, command, wait_for_driver
+
+
+fixture_loaded = Event()
+destination_loaded = Event()
+
+
+class ObservedTestPage(TestPage):
+    def do_GET(self):
+        super().do_GET()
+        if self.path == "/":
+            fixture_loaded.set()
+        elif self.path == "/clicked":
+            destination_loaded.set()
 
 
 def capabilities(fixture_url):
@@ -61,8 +75,25 @@ def run_test(fixture_url):
             context = command("GET", path + "/context")
             if context != "NATIVE_APP":
                 raise AssertionError(f"Unexpected Appium context: {context}")
-            link = {"using": "accessibility id", "value": "Open result"}
-            result = {"using": "accessibility id", "value": "Link clicked"}
+            if not fixture_loaded.wait(timeout=90):
+                raise AssertionError("Safari did not request the fixture page")
+            source = command("GET", path + "/source", timeout=120)
+            link = ElementTree.fromstring(source).find(".//XCUIElementTypeLink[@label='Open result']")
+            if link is None or link.get("visible") != "true":
+                raise AssertionError("The fixture link is missing or hidden in Safari's UI tree")
+            x = float(link.attrib["x"]) + float(link.attrib["width"]) / 2
+            y = float(link.attrib["y"]) + float(link.attrib["height"]) / 2
+            print(f"Tapping the center of the visible fixture link ({x:g}, {y:g})", flush=True)
+            command("POST", path + "/execute/sync", {
+                "script": "mobile: tap", "args": [{"x": x, "y": y}],
+            }, timeout=120)
+            if not destination_loaded.wait(timeout=45):
+                raise AssertionError("Safari did not request the destination after the Appium tap")
+            source = command("GET", path + "/source", timeout=120)
+            if "Link clicked" not in source:
+                raise AssertionError("Safari's UI tree did not show the destination")
+            print("PASS: Appium tapped the link in iPhone Safari and found the destination", flush=True)
+            return
         element = command("POST", path + "/element", link, timeout=90)
         print("Fixture link found", flush=True)
         command("POST", f"{path}/element/{element[ELEMENT_KEY]}/click", {}, timeout=90)
@@ -84,7 +115,7 @@ def run_test(fixture_url):
 
 
 if __name__ == "__main__":
-    with ThreadingHTTPServer(("127.0.0.1", 0), TestPage) as server:
+    with ThreadingHTTPServer(("127.0.0.1", 0), ObservedTestPage) as server:
         Thread(target=server.serve_forever, daemon=True).start()
         with open("appium.log", "w") as log:
             with subprocess.Popen(
