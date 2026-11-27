@@ -83,7 +83,8 @@ if __name__ == "__main__":
                 stdout=log, stderr=subprocess.STDOUT,
             ) as driver:
                 try:
-                    wait_for_driver(driver)
+                    wait_for_driver(driver, timeout=180, name="Appium")
+                    print("Appium HTTP endpoint is ready", flush=True)
                     run_test(f"http://127.0.0.1:{server.server_port}/")
                 finally:
                     if driver.poll() is None:

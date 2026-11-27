@@ -41,16 +41,17 @@ def command(method, path, payload=None, timeout=30):
         raise RuntimeError(f"{method} {path}: {error.read().decode()}") from error
 
 
-def wait_for_driver(process):
-    for _ in range(15):
+def wait_for_driver(process, timeout=30, name="safaridriver"):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         if process.poll() is not None:
-            raise RuntimeError("safaridriver exited before becoming ready")
+            raise RuntimeError(f"{name} exited before becoming ready")
         try:
             command("GET", "/status", timeout=2)
             return
         except (URLError, TimeoutError):
             time.sleep(1)
-    raise RuntimeError("safaridriver did not respond")
+    raise RuntimeError(f"{name} did not respond within {timeout} seconds")
 
 
 def run_test(fixture_url):

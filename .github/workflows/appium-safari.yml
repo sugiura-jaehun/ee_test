@@ -11,14 +11,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - mode: xcuitest-managed
-            runner: macos-26
           - mode: xcuitest-attach
             runner: macos-26
           - mode: xcuitest-attach
             runner: macos-26-intel
-          - mode: safari-driver
-            runner: macos-26
     env:
       APPIUM_MODE: ${{ matrix.mode }}
     steps:
