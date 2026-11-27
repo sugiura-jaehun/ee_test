@@ -26,6 +26,9 @@ jobs:
           : "${TEST_RUNNER_SMOKE_START_URL:?Missing test URL}"
           : "${TEST_RUNNER_SMOKE_LINK_LABEL:?Missing link label}"
           : "${TEST_RUNNER_SMOKE_DESTINATION_LABEL:?Missing destination label}"
+          echo "::add-mask::$TEST_RUNNER_SMOKE_START_URL"
+          echo "::add-mask::$TEST_RUNNER_SMOKE_LINK_LABEL"
+          echo "::add-mask::$TEST_RUNNER_SMOKE_DESTINATION_LABEL"
           udid=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
@@ -38,13 +41,18 @@ jobs:
             trap 'kill -INT "$record_pid" 2>/dev/null || true; wait "$record_pid" 2>/dev/null || true' EXIT
           fi
           log="$RUNNER_TEMP/live-safari-test.log"
+          result_bundle="$RUNNER_TEMP/SafariSmoke.xcresult"
           if xcodebuild test -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
             -destination "platform=iOS Simulator,id=$udid" \
             -parallel-testing-enabled NO \
-            -only-testing:SafariTests/SafariTests/testTapLinkOnConfiguredSite -quiet > "$log" 2>&1; then
+            -resultBundlePath "$result_bundle" \
+            -only-testing:SafariTests/SafariTests/testTapLinkOnConfiguredSite > "$log" 2>&1; then
             echo "PASS: Safari tapped the configured link and displayed the destination."
           else
-            rg -o 'Start-page link was unavailable|Destination marker was already visible before the tap|Destination marker was unavailable after the tap|\*\* TEST FAILED \*\*' "$log" || cat "$log"
+            echo "=== XCTest result summary ==="
+            xcrun xcresulttool get test-results summary --path "$result_bundle" || true
+            echo "=== XCTest log ==="
+            cat "$log"
             exit 1
           fi
       - name: Upload screen recording
