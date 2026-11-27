@@ -74,7 +74,7 @@ def run_test(fixture_url):
                 ["xcrun", "simctl", "openurl", os.environ["SIMULATOR_UDID"], fixture_url],
             )
             try:
-                time.sleep(30)
+                open_url.wait(timeout=180)
             finally:
                 if open_url.poll() is None:
                     open_url.terminate()
