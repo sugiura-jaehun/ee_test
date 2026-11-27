@@ -9,7 +9,8 @@ final class SafariTests: XCTestCase {
         safari.open(url)
 
         XCTAssertTrue(safari.webViews.firstMatch.waitForExistence(timeout: 30))
-        for _ in 0..<3 {
+        let tipDeadline = Date().addingTimeInterval(60)
+        while Date() < tipDeadline {
             if let title = try toolbarTipTitle(in: safari) {
                 let frame = safari.frame
                 let closeY = 1 - title.midY
@@ -25,12 +26,13 @@ final class SafariTests: XCTestCase {
                     // Safari's tooltip close button may be missing from its accessibility tree.
                     safari.coordinate(withNormalizedOffset: CGVector(dx: 0.91, dy: closeY)).tap()
                 }
-                let deadline = Date().addingTimeInterval(5)
+                let deadline = Date().addingTimeInterval(8)
                 while Date() < deadline {
                     if try toolbarTipTitle(in: safari) == nil {
                         print("Safari toolbar tip dismissed")
                         return
                     }
+                    Thread.sleep(forTimeInterval: 0.5)
                 }
                 XCTFail("Safari toolbar tip remained visible after tapping Close")
                 return

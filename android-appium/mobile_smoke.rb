@@ -65,6 +65,9 @@ begin
   expected_path = URI.join(start_page.to_s, start_link[:href]).path
   raise 'Start link does not lead to a different page' if expected_path == start_page.path
 
+  if browser.start_with?('safari')
+    session.execute_script("arguments[0].scrollIntoView({ block: 'center' })", start_link)
+  end
   puts 'Tapping the start link'
   start_link.click
   unless session.has_current_path?(expected_path, ignore_query: true)
