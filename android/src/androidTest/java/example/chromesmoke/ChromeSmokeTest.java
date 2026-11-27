@@ -1,7 +1,5 @@
 package example.chromesmoke;
 
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -25,16 +23,11 @@ public class ChromeSmokeTest {
         android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         Bundle args = InstrumentationRegistry.getArguments();
         UiDevice device = UiDevice.getInstance(instrumentation);
-        Uri startUrl = Uri.parse(args.getString("startUrl"));
+        String startUrl = args.getString("startUrl");
         String startLabel = args.getString("startLabel");
         String destinationLabel = args.getString("destinationLabel");
 
-        Intent openPage = new Intent(Intent.ACTION_VIEW, startUrl)
-                .setPackage(CHROME)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        instrumentation.getContext().startActivity(openPage);
-
-        UiObject2 startLink = waitForStartLink(device, startLabel);
+        UiObject2 startLink = waitForStartLink(device, startLabel, startUrl);
         assertNotNull("The consultation link was not found on the start page", startLink);
         assertNull("The destination text was already visible before the tap",
                 findText(device, destinationLabel));
@@ -56,8 +49,10 @@ public class ChromeSmokeTest {
         fail("The destination consultation text was not visible after scrolling");
     }
 
-    private UiObject2 waitForStartLink(UiDevice device, String label) {
+    private UiObject2 waitForStartLink(UiDevice device, String label, String startUrl)
+            throws java.io.IOException {
         long deadline = android.os.SystemClock.elapsedRealtime() + 45_000;
+        boolean openAgain = false;
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             UiObject2 link = findText(device, label);
             if (link != null) {
@@ -65,12 +60,22 @@ public class ChromeSmokeTest {
             }
 
             // Fresh Play Store emulator images can show Chrome onboarding.
-            for (String id : new String[]{"terms_accept", "negative_button", "no_thanks_button"}) {
+            boolean handledPrompt = false;
+            for (String id : new String[]{"terms_accept", "negative_button", "no_thanks_button",
+                    "ack_button", "secondary_button"}) {
                 UiObject2 button = device.findObject(By.res(CHROME, id).clickable(true));
                 if (button != null) {
                     button.click();
+                    handledPrompt = true;
+                    openAgain = true;
                     break;
                 }
+            }
+            if (!handledPrompt && openAgain && device.hasObject(By.res(CHROME, "url_bar"))) {
+                String quotedUrl = "'" + startUrl.replace("'", "'\\''") + "'";
+                device.executeShellCommand("am start -a android.intent.action.VIEW -d "
+                        + quotedUrl + " -p " + CHROME);
+                openAgain = false;
             }
             android.os.SystemClock.sleep(500);
         }

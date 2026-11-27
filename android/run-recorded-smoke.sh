@@ -22,6 +22,11 @@ save_recording() {
 }
 trap save_recording EXIT
 
+# Start Chrome from the device shell, which can launch an activity from the home screen.
+printf -v launch_command '%q ' am start -W -a android.intent.action.VIEW \
+  -d "$SMOKE_START_URL" -p com.android.chrome
+adb shell "$launch_command"
+
 # Escape each argument for the device shell that executes the command.
 printf -v test_command '%q ' am instrument -w -r \
   -e startUrl "$SMOKE_START_URL" \
