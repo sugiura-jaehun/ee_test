@@ -8,6 +8,14 @@ destination_label = ENV.fetch('SMOKE_DESTINATION_LABEL')
 
 browser = ENV.fetch('SMOKE_BROWSER', 'chrome')
 capabilities = case browser
+when 'safari-webdriver'
+  {
+    'platformName' => 'iOS',
+    'browserName' => 'Safari',
+    'appium:automationName' => 'Safari',
+    'safari:useSimulator' => true,
+    'safari:deviceUDID' => ENV.fetch('SIMULATOR_UDID')
+  }
 when 'safari'
   {
     'platformName' => 'iOS',
@@ -38,7 +46,7 @@ end
 
 Capybara.register_driver(:mobile_appium) do |app|
   http = Selenium::WebDriver::Remote::Http::Default.new
-  http.read_timeout = 540 if browser == 'safari'
+  http.read_timeout = 540 if browser.start_with?('safari')
   Capybara::Selenium::Driver.new(app, browser: :remote,
                                     url: 'http://127.0.0.1:4723',
                                     http_client: http,

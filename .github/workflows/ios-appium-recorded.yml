@@ -29,16 +29,16 @@ jobs:
         run: |
           npm ci --prefix ios-appium
           echo "APPIUM_HOME=$RUNNER_TEMP/appium-home" >> "$GITHUB_ENV"
-      - name: Cache XCUITest driver
+      - name: Cache the Appium Safari driver
         id: driver-cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.APPIUM_HOME }}
-          key: ios-appium4-xcuitest13.8.0-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ios-appium/package-lock.json') }}
-      - name: Install XCUITest driver
+          key: ios-appium4-safari6.0.5-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ios-appium/package-lock.json') }}
+      - name: Install the Appium Safari driver
         if: steps.driver-cache.outputs.cache-hit != 'true'
-        run: ios-appium/node_modules/.bin/appium driver install xcuitest@13.8.0
-      - name: Save XCUITest driver
+        run: ios-appium/node_modules/.bin/appium driver install safari@6.0.5
+      - name: Save the Appium Safari driver
         if: steps.driver-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
@@ -55,6 +55,7 @@ jobs:
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
       - name: Run recorded Safari smoke test
         env:
+          SMOKE_BROWSER: safari-webdriver
           SMOKE_START_URL: ${{ secrets.ONCE_SAFARI_START_URL }}
           SMOKE_START_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
           SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
