@@ -1,5 +1,6 @@
 require 'capybara'
 require 'selenium-webdriver'
+require 'uri'
 
 start_url = ENV.fetch('SMOKE_START_URL')
 start_label = ENV.fetch('SMOKE_START_LABEL')
@@ -26,11 +27,15 @@ begin
   puts 'Opening the start page in Android Chrome'
   session.visit(start_url)
   start_link = session.find(:link, start_label, exact: true, match: :first)
-  raise 'Destination link already present before navigation' if
-    session.has_link?(destination_label, exact: true, wait: 0)
+  start_page = URI.parse(session.current_url)
+  expected_path = URI.join(start_page.to_s, start_link[:href]).path
+  raise 'Start link does not lead to a different page' if expected_path == start_page.path
 
   puts 'Tapping the start link'
   start_link.click
+  unless session.has_current_path?(expected_path, ignore_query: true)
+    raise 'Chrome did not reach the expected destination path after tapping the start link'
+  end
   destination = session.find(:link, destination_label, exact: true, visible: :all, match: :first)
   puts 'Scrolling to the consultation link'
   session.execute_script("arguments[0].scrollIntoView({ block: 'center' })", destination)
