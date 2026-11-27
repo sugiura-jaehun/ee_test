@@ -38,6 +38,9 @@ def capabilities(fixture_url):
 
 def run_test(fixture_url):
     caps = capabilities(fixture_url)
+    caps.pop("appium:bundleId")
+    caps.pop("appium:initialDeeplinkUrl")
+    caps["appium:noReset"] = True
     print(f"Starting an Appium session with {os.environ['APPIUM_MODE']}", flush=True)
     session = command("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=660)
     path = f'/session/{session["sessionId"]}'
@@ -49,6 +52,11 @@ def run_test(fixture_url):
             link = {"using": "css selector", "value": "#test-link"}
             result = {"using": "css selector", "value": "#result"}
         else:
+            subprocess.run(
+                ["xcrun", "simctl", "openurl", os.environ["SIMULATOR_UDID"], fixture_url],
+                check=True, timeout=120,
+            )
+            print("Opened the fixture URL through the simulator", flush=True)
             context = command("GET", path + "/context")
             if context != "NATIVE_APP":
                 raise AssertionError(f"Unexpected Appium context: {context}")

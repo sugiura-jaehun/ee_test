@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - mode: safari-driver
+          - mode: xcuitest-attach
             runner: macos-26
     env:
       APPIUM_MODE: ${{ matrix.mode }}
