@@ -55,6 +55,7 @@ def run_test(fixture_url):
     caps.pop("appium:bundleId")
     caps.pop("appium:initialDeeplinkUrl")
     caps["appium:noReset"] = True
+    caps["appium:newCommandTimeout"] = 300
     caps["appium:settings[defaultActiveApplication]"] = "com.apple.mobilesafari"
     print(f"Starting an Appium session with {os.environ['APPIUM_MODE']}", flush=True)
     session = command("POST", "/session", {"capabilities": {"alwaysMatch": caps}}, timeout=660)
@@ -67,16 +68,24 @@ def run_test(fixture_url):
             link = {"using": "css selector", "value": "#test-link"}
             result = {"using": "css selector", "value": "#result"}
         else:
-            subprocess.run(
+            open_url = subprocess.Popen(
                 ["xcrun", "simctl", "openurl", os.environ["SIMULATOR_UDID"], fixture_url],
-                check=True, timeout=120,
             )
-            print("Opened the fixture URL through the simulator", flush=True)
+            try:
+                if not fixture_loaded.wait(timeout=120):
+                    raise AssertionError("Safari did not request the fixture page")
+            finally:
+                if open_url.poll() is None:
+                    open_url.terminate()
+                    try:
+                        open_url.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        open_url.kill()
+                        open_url.wait()
+            print("Safari requested the fixture URL", flush=True)
             context = command("GET", path + "/context")
             if context != "NATIVE_APP":
                 raise AssertionError(f"Unexpected Appium context: {context}")
-            if not fixture_loaded.wait(timeout=90):
-                raise AssertionError("Safari did not request the fixture page")
             source = command("GET", path + "/source", timeout=120)
             link = ElementTree.fromstring(source).find(".//XCUIElementTypeLink[@label='Open result']")
             if link is None or link.get("visible") != "true":
