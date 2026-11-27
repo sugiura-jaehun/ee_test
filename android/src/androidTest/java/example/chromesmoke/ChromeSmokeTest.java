@@ -52,6 +52,7 @@ public class ChromeSmokeTest {
     private UiObject2 waitForStartLink(UiDevice device, String label, String startUrl)
             throws java.io.IOException {
         long deadline = android.os.SystemClock.elapsedRealtime() + 45_000;
+        openChrome(device, startUrl);
         boolean openAgain = false;
         while (android.os.SystemClock.elapsedRealtime() < deadline) {
             UiObject2 link = findText(device, label);
@@ -72,14 +73,18 @@ public class ChromeSmokeTest {
                 }
             }
             if (!handledPrompt && openAgain && device.hasObject(By.res(CHROME, "url_bar"))) {
-                String quotedUrl = "'" + startUrl.replace("'", "'\\''") + "'";
-                device.executeShellCommand("am start -a android.intent.action.VIEW -d "
-                        + quotedUrl + " -p " + CHROME);
+                openChrome(device, startUrl);
                 openAgain = false;
             }
             android.os.SystemClock.sleep(500);
         }
         return null;
+    }
+
+    private void openChrome(UiDevice device, String url) throws java.io.IOException {
+        String quotedUrl = "'" + url.replace("'", "'\\''") + "'";
+        device.executeShellCommand("am start -a android.intent.action.VIEW -d "
+                + quotedUrl + " -p " + CHROME);
     }
 
     private UiObject2 findText(UiDevice device, String label) {

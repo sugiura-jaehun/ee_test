@@ -16,16 +16,13 @@ adb shell screenrecord --bit-rate 4000000 --time-limit 180 "$remote_video" &
 record_command=$!
 
 save_recording() {
+  adb shell dumpsys activity activities | grep -E 'topResumedActivity|mResumedActivity' || true
+  adb logcat -d -s ActivityTaskManager AndroidRuntime chromium > "$output/device.log" || true
   adb shell 'for pid in $(pidof screenrecord); do kill -INT "$pid"; done' || true
   wait "$record_command" || true
   adb pull "$remote_video" "$output/chrome-smoke.mp4" || true
 }
 trap save_recording EXIT
-
-# Start Chrome from the device shell, which can launch an activity from the home screen.
-printf -v launch_command '%q ' am start -W -a android.intent.action.VIEW \
-  -d "$SMOKE_START_URL" -p com.android.chrome
-adb shell "$launch_command"
 
 # Escape each argument for the device shell that executes the command.
 printf -v test_command '%q ' am instrument -w -r \
