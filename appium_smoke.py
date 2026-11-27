@@ -24,6 +24,7 @@ def capabilities(fixture_url):
         "appium:platformVersion": "26.5",
         "appium:bundleId": "com.apple.mobilesafari",
         "appium:initialDeeplinkUrl": fixture_url,
+        "appium:isHeadless": True,
         "appium:wdaLaunchTimeout": 480000,
         "appium:wdaConnectionTimeout": 90000,
         "appium:wdaStartupRetries": 1,
