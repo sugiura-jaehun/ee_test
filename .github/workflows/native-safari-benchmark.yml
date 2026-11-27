@@ -1,0 +1,63 @@
+name: iPhone Safari recording speed comparison
+on:
+  workflow_dispatch:
+    inputs:
+      record_video:
+        description: Record the iPhone Simulator screen during the test
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+jobs:
+  safari:
+    runs-on: macos-26
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Prepare the test project
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
+          xcodegen generate --spec native/project.yml
+      - name: Tap a link on the configured site in iPhone Safari
+        env:
+          TEST_RUNNER_SMOKE_START_URL: ${{ secrets.ONCE_SAFARI_START_URL }}
+          TEST_RUNNER_SMOKE_LINK_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
+          TEST_RUNNER_SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
+          RECORD_VIDEO: ${{ inputs.record_video }}
+        run: |
+          set -o pipefail
+          xcodebuild -version
+          : "${TEST_RUNNER_SMOKE_START_URL:?Missing test URL}"
+          : "${TEST_RUNNER_SMOKE_LINK_LABEL:?Missing link label}"
+          : "${TEST_RUNNER_SMOKE_DESTINATION_LABEL:?Missing destination label}"
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
+          print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
+          ')
+          xcrun simctl bootstatus "$udid" -b
+          if [ "$RECORD_VIDEO" = true ]; then
+            xcrun simctl io "$udid" recordVideo --codec h264 "$RUNNER_TEMP/safari-test.mp4" > "$RUNNER_TEMP/record.log" 2>&1 &
+            record_pid=$!
+            trap 'kill -INT "$record_pid" 2>/dev/null || true; wait "$record_pid" 2>/dev/null || true' EXIT
+          fi
+          log="$RUNNER_TEMP/live-safari-test.log"
+          if xcodebuild test -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
+            -destination "platform=iOS Simulator,id=$udid" \
+            -parallel-testing-enabled NO \
+            -only-testing:SafariTests/SafariTests/testTapLinkOnConfiguredSite -quiet > "$log" 2>&1; then
+            echo "PASS: Safari tapped the configured link and displayed the destination."
+          else
+            rg -o 'Start-page link was unavailable|Destination marker was already visible before the tap|Destination marker was unavailable after the tap|\*\* TEST FAILED \*\*' "$log" || true
+            exit 1
+          fi
+      - name: Upload screen recording
+        if: ${{ always() && inputs.record_video }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: safari-speed-comparison-recording
+          path: ${{ runner.temp }}/safari-test.mp4
+          if-no-files-found: warn
