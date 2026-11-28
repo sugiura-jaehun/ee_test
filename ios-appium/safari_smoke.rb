@@ -68,6 +68,7 @@ caps = Selenium::WebDriver::Remote::Capabilities.new(
   'appium:automationName' => 'XCUITest',
   'appium:udid' => ENV.fetch('SIMULATOR_UDID'),
   'appium:webDriverAgentUrl' => 'http://127.0.0.1:8100',
+  'appium:newCommandTimeout' => 240,
   'appium:settings[defaultActiveApplication]' => SAFARI,
   'appium:isHeadless' => true,
   'appium:noReset' => true,
@@ -107,5 +108,9 @@ rescue StandardError
   end
   raise
 ensure
-  driver&.quit
+  begin
+    driver&.quit
+  rescue Selenium::WebDriver::Error::InvalidSessionIdError
+    warn 'Appium session already ended'
+  end
 end
