@@ -81,8 +81,18 @@ jobs:
           SMOKE_START_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
           SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
         run: bash ios-appium/run-recorded-smoke.sh
+      - name: Upload Safari diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-appium-diagnostics
+          path: |
+            ${{ runner.temp }}/ios-appium-recording/*.log
+            ${{ runner.temp }}/ios-appium-recording/*.png
+          if-no-files-found: warn
       - name: Compress the screen recording
         if: always()
+        timeout-minutes: 4
         run: |
           original="$RUNNER_TEMP/iphone-safari-original.mp4"
           [[ -s "$original" ]] || exit 0
@@ -91,10 +101,10 @@ jobs:
           output="$RUNNER_TEMP/ios-appium-recording/iphone-safari.mp4"
           bash ios-appium/compress-recording.sh "$original" "$RUNNER_TEMP/iphone-safari-compressed.mp4"
           mv "$RUNNER_TEMP/iphone-safari-compressed.mp4" "$output"
-      - name: Upload recording and logs
+      - name: Upload the compressed recording
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-appium-recording
-          path: ${{ runner.temp }}/ios-appium-recording/
+          path: ${{ runner.temp }}/ios-appium-recording/iphone-safari.mp4
           if-no-files-found: warn
