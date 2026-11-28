@@ -59,7 +59,19 @@ $stdout.sync = true
 
 begin
   puts "Opening the start page in #{browser}"
-  session.visit(start_url)
+  connection_attempts = 0
+  begin
+    session.visit(start_url)
+  rescue Selenium::WebDriver::Error::SessionNotCreatedError,
+         Selenium::WebDriver::Error::UnknownError => error
+    connection_attempts += 1
+    connection_timeout = error.message.match?(/not listening|timed out while connecting|RWIApplication/i)
+    raise unless browser == 'safari-webdriver' && connection_timeout && connection_attempts < 3
+
+    warn "Safari WebDriver connection timed out; retrying (attempt #{connection_attempts + 1} of 3)"
+    sleep 3
+    retry
+  end
   start_link = session.find(:link, start_label, exact: true, match: :first)
   start_page = URI.parse(session.current_url)
   expected_path = URI.join(start_page.to_s, start_link[:href]).path

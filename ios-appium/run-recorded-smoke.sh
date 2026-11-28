@@ -48,6 +48,7 @@ if [[ "$SMOKE_BROWSER" == safari-webdriver ]]; then
     exit 1
   fi
   grep -E 'Safari toolbar tip|TEST SUCCEEDED' "$output/safari-preparation.log" || true
+  xcrun simctl launch "$SIMULATOR_UDID" com.apple.mobilesafari
 fi
 if ! bundle exec ruby android-appium/mobile_smoke.rb 2>&1 | tee "$output/test.log"; then
   xcrun simctl io "$SIMULATOR_UDID" screenshot "$output/failure.png" || true
