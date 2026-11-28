@@ -58,16 +58,15 @@ start_label = ENV.fetch('SMOKE_START_LABEL')
 destination_label = ENV.fetch('SMOKE_DESTINATION_LABEL')
 history = ENV.fetch('SAFARI_HISTORY_DB')
 http = Selenium::WebDriver::Remote::Http::Default.new
-http.read_timeout = 400
+http.read_timeout = 120
 caps = Selenium::WebDriver::Remote::Capabilities.new(
   'platformName' => 'iOS',
   'appium:automationName' => 'XCUITest',
   'appium:udid' => ENV.fetch('SIMULATOR_UDID'),
+  'appium:webDriverAgentUrl' => 'http://127.0.0.1:8100',
   'appium:settings[defaultActiveApplication]' => SAFARI,
   'appium:isHeadless' => true,
   'appium:noReset' => true,
-  'appium:wdaLaunchTimeout' => 300_000,
-  'appium:wdaStartupRetries' => 1,
   'appium:waitForIdleTimeout' => 2
 )
 
