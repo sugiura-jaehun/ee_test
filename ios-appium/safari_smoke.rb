@@ -13,7 +13,9 @@ end
 def visible_link(driver, label, match: '==')
   escaped = label.gsub(/[\\"]/){ |character| "\\#{character}" }
   predicate = %(type == "XCUIElementTypeLink" AND (label #{match} "#{escaped}" OR name #{match} "#{escaped}"))
-  driver.find_elements('-ios predicate string', predicate).find(&:displayed?)
+  driver.find_elements('-ios predicate string', predicate).find do |element|
+    element.dom_attribute('visible').to_s == 'true'
+  end
 rescue Selenium::WebDriver::Error::StaleElementReferenceError
   nil
 end
