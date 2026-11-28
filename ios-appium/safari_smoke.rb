@@ -62,9 +62,8 @@ http.read_timeout = 400
 caps = Selenium::WebDriver::Remote::Capabilities.new(
   'platformName' => 'iOS',
   'appium:automationName' => 'XCUITest',
-  'appium:bundleId' => SAFARI,
   'appium:udid' => ENV.fetch('SIMULATOR_UDID'),
-  'appium:initialDeeplinkUrl' => start_url.to_s,
+  'appium:settings[defaultActiveApplication]' => SAFARI,
   'appium:isHeadless' => true,
   'appium:noReset' => true,
   'appium:wdaLaunchTimeout' => 300_000,
@@ -73,9 +72,13 @@ caps = Selenium::WebDriver::Remote::Capabilities.new(
 )
 
 begin
-  puts 'Opening Safari through Appium in native mode'
+  puts 'Starting an Appium native session'
   driver = Selenium::WebDriver.for(:remote, url: 'http://127.0.0.1:4723',
                                  capabilities: [caps], http_client: http)
+  puts 'Opening the start page in Safari'
+  unless system('xcrun', 'simctl', 'openurl', ENV.fetch('SIMULATOR_UDID'), start_url.to_s)
+    raise 'The simulator could not open the start URL'
+  end
   wait_until(75, 'Safari did not expose the web page') do
     driver.find_elements('-ios predicate string', 'type == "XCUIElementTypeWebView"').any?
   end
