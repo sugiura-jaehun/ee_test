@@ -6,14 +6,16 @@ SAFARI = 'com.apple.mobilesafari'
 APPLE_EPOCH = 978_307_200
 DESTINATION_PATH = '/advisers'
 
+Selenium::WebDriver::SearchContext.extra_finders = { ios_predicate: '-ios predicate string' }
+
 def wait_until(seconds, message, &condition)
   Selenium::WebDriver::Wait.new(timeout: seconds, interval: 1, message: message).until(&condition)
 end
 
 def visible_link(driver, label, match: '==')
-  escaped = label.gsub(/[\\"]/){ |character| "\\#{character}" }
+  escaped = label.gsub(/[\\"]/) { |character| "\\#{character}" }
   predicate = %(type == "XCUIElementTypeLink" AND (label #{match} "#{escaped}" OR name #{match} "#{escaped}"))
-  driver.find_elements('-ios predicate string', predicate).find do |element|
+  driver.find_elements(:ios_predicate, predicate).find do |element|
     element.dom_attribute('visible').to_s == 'true'
   end
 rescue Selenium::WebDriver::Error::StaleElementReferenceError
@@ -81,7 +83,9 @@ begin
     raise 'The simulator could not open the start URL'
   end
   wait_until(75, 'Safari did not expose the web page') do
-    driver.find_elements('-ios predicate string', 'type == "XCUIElementTypeWebView"').any?
+    driver.find_elements(:ios_predicate, 'type == "XCUIElementTypeWebView"').any? do |element|
+      element.dom_attribute('visible').to_s == 'true'
+    end
   end
   link = scroll_for_link(driver, start_label)
   tapped_at = Time.now.to_f - APPLE_EPOCH
