@@ -57,6 +57,8 @@ jobs:
         run: |
           HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
           xcodegen generate --spec native/project.yml
+          xcodebuild build-for-testing -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
+            -destination 'generic/platform=iOS Simulator' -quiet
       - name: Restore the standalone FFmpeg package
         id: ffmpeg-cache
         uses: actions/cache/restore@v4

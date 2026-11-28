@@ -37,17 +37,6 @@ record_pid=$!
 
 export BUNDLE_GEMFILE="$PWD/android-appium/Gemfile"
 if [[ "$SMOKE_BROWSER" == safari-webdriver ]]; then
-  export TEST_RUNNER_SMOKE_START_URL="$SMOKE_START_URL"
-  if ! xcodebuild test -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
-    -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-    -parallel-testing-enabled NO \
-    -only-testing:SafariTests/SafariTests/testDismissSafariToolbarTip \
-    > "$output/safari-preparation.log" 2>&1; then
-    xcrun simctl io "$SIMULATOR_UDID" screenshot "$output/preparation-failure.png" || true
-    tail -70 "$output/safari-preparation.log"
-    exit 1
-  fi
-  grep -E 'Safari toolbar tip|TEST SUCCEEDED' "$output/safari-preparation.log" || true
   xcrun simctl launch "$SIMULATOR_UDID" com.apple.mobilesafari
 fi
 if ! bundle exec ruby android-appium/mobile_smoke.rb 2>&1 | tee "$output/test.log"; then

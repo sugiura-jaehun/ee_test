@@ -10,4 +10,4 @@ if ! xcodebuild test-without-building -project native/SafariSmoke.xcodeproj -sch
   tail -70 "$log"
   exit 1
 fi
-grep -E 'XCTest tapped|TEST SUCCEEDED' "$log" || true
+grep -E 'Safari toolbar tip|XCTest tapped|TEST SUCCEEDED' "$log" || true

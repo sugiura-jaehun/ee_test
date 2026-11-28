@@ -10,6 +10,8 @@ final class SafariTests: XCTestCase {
 
         let link = safari.webViews.links[label].firstMatch
         XCTAssertTrue(link.waitForExistence(timeout: 25), "Safari link was not visible to XCTest")
+        try dismissSafariToolbarTip(in: safari, timeout: 15)
+        XCTAssertTrue(link.exists, "The link disappeared after dismissing the Safari tip")
         link.tap()
         print("XCTest tapped the configured Safari web link")
     }
@@ -21,7 +23,11 @@ final class SafariTests: XCTestCase {
         safari.open(url)
 
         XCTAssertTrue(safari.webViews.firstMatch.waitForExistence(timeout: 30))
-        let tipDeadline = Date().addingTimeInterval(60)
+        try dismissSafariToolbarTip(in: safari, timeout: 60)
+    }
+
+    private func dismissSafariToolbarTip(in safari: XCUIApplication, timeout: TimeInterval) throws {
+        let tipDeadline = Date().addingTimeInterval(timeout)
         while Date() < tipDeadline {
             if let title = try toolbarTipTitle(in: safari) {
                 let frame = safari.frame
