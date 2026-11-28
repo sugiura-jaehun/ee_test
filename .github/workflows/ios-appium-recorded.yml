@@ -1,4 +1,4 @@
-name: iPhone Safari with Capybara and Appium
+name: iPhone Safari with Appium XCUITest
 on:
   push:
     branches: [ios-appium-video]
@@ -29,16 +29,16 @@ jobs:
         run: |
           npm ci --prefix ios-appium
           echo "APPIUM_HOME=$RUNNER_TEMP/appium-home" >> "$GITHUB_ENV"
-      - name: Cache the Appium Safari driver
+      - name: Cache the Appium XCUITest driver
         id: driver-cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.APPIUM_HOME }}
-          key: ios-appium4-safari6.0.5-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ios-appium/package-lock.json') }}
-      - name: Install the Appium Safari driver
+          key: ios-appium4-xcuitest13.8.0-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('ios-appium/package-lock.json') }}
+      - name: Install the Appium XCUITest driver
         if: steps.driver-cache.outputs.cache-hit != 'true'
-        run: ios-appium/node_modules/.bin/appium driver install safari@6.0.5
-      - name: Save the Appium Safari driver
+        run: ios-appium/node_modules/.bin/appium driver install xcuitest@13.8.0
+      - name: Save the Appium XCUITest driver
         if: steps.driver-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
@@ -47,18 +47,13 @@ jobs:
       - name: Resolve the iPhone 17 simulator
         run: |
           xcodebuild -version
-          udid=$(xcrun simctl list devices available -j | python3 -c '
+          xcrun simctl list devices available -j | python3 -c '
           import json, sys
           devices = json.load(sys.stdin)["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-5"]
-          print(next(device["udid"] for device in devices if device["name"] == "iPhone 17"))
-          ')
-          echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
-      - name: Prepare the native Safari setup test
-        run: |
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install xcodegen
-          xcodegen generate --spec native/project.yml
-          xcodebuild build-for-testing -project native/SafariSmoke.xcodeproj -scheme SafariSmoke \
-            -destination 'generic/platform=iOS Simulator' -quiet
+          device = next(device for device in devices if device["name"] == "iPhone 17")
+          print("SIMULATOR_UDID=" + device["udid"])
+          print("SAFARI_HISTORY_DB=" + device["dataPath"] + "/Library/Safari/History.db")
+          ' >> "$GITHUB_ENV"
       - name: Restore the standalone FFmpeg package
         id: ffmpeg-cache
         uses: actions/cache/restore@v4
@@ -78,7 +73,6 @@ jobs:
           key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
       - name: Run recorded Safari smoke test
         env:
-          SMOKE_BROWSER: safari-webdriver
           SMOKE_START_URL: ${{ secrets.ONCE_SAFARI_START_URL }}
           SMOKE_START_LABEL: ${{ secrets.ONCE_SAFARI_LINK_LABEL }}
           SMOKE_DESTINATION_LABEL: ${{ secrets.ONCE_SAFARI_DESTINATION_LABEL }}
@@ -91,6 +85,7 @@ jobs:
           path: |
             ${{ runner.temp }}/ios-appium-recording/*.log
             ${{ runner.temp }}/ios-appium-recording/*.png
+            ${{ runner.temp }}/ios-appium-recording/*.xml
           if-no-files-found: warn
       - name: Compress the screen recording
         if: always()
