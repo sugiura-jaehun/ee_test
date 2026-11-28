@@ -1,4 +1,6 @@
+require 'json'
 require 'open3'
+require 'tmpdir'
 require 'selenium-webdriver'
 require 'uri'
 
@@ -6,36 +8,37 @@ SAFARI = 'com.apple.mobilesafari'
 APPLE_EPOCH = 978_307_200
 DESTINATION_PATH = '/advisers'
 
-Selenium::WebDriver::SearchContext.extra_finders = { ios_predicate: '-ios predicate string' }
-
 def wait_until(seconds, message, &condition)
   Selenium::WebDriver::Wait.new(timeout: seconds, interval: 1, message: message).until(&condition)
 end
 
-def visible_link(driver, label, match: '==')
-  escaped = label.gsub(/[\\"]/) { |character| "\\#{character}" }
-  predicate = %(type == "XCUIElementTypeLink" AND (label #{match} "#{escaped}" OR name #{match} "#{escaped}"))
-  driver.find_elements(:ios_predicate, predicate).find do |element|
-    element.dom_attribute('visible').to_s == 'true'
+def screen_positions(label)
+  Dir.mktmpdir('safari-smoke') do |directory|
+    screenshot = File.join(directory, 'screen.png')
+    _, capture = Open3.capture2('xcrun', 'simctl', 'io', ENV.fetch('SIMULATOR_UDID'),
+                              'screenshot', screenshot)
+    raise 'Could not capture the iPhone screen' unless capture.success?
+
+    positions, result = Open3.capture2(ENV.fetch('SAFARI_OCR_BIN'), screenshot, label)
+    raise 'Could not read the iPhone screen' unless result.success?
+
+    JSON.parse(positions)
   end
-rescue Selenium::WebDriver::Error::StaleElementReferenceError
-  nil
 end
 
-def scroll_for_link(driver, label, match: '==')
-  size = driver.manage.window.size
-  11.times do |scroll_count|
-    link = visible_link(driver, label, match: match)
-    return link if link
-    break if scroll_count == 10
+def scroll_for_link(driver, size, label)
+  19.times do |scroll_count|
+    position = screen_positions(label).find { |x, y| (0.05..0.95).cover?(x) && (0.14..0.63).cover?(y) }
+    return position if position
+    break if scroll_count == 18
 
     driver.execute_script('mobile: dragFromToForDuration', {
       duration: 0.3,
-      fromX: size.width * 0.5, fromY: size.height * 0.58,
-      toX: size.width * 0.5, toY: size.height * 0.22
+      fromX: (size.width * 0.5).round, fromY: (size.height * 0.60).round,
+      toX: (size.width * 0.5).round, toY: (size.height * 0.25).round
     })
   end
-  raise 'Expected link did not become visible after scrolling'
+  raise 'Expected link text was not visible in the tappable part of the screen after scrolling'
 end
 
 def recently_visited?(history, host, after)
@@ -83,20 +86,16 @@ begin
   unless system('xcrun', 'simctl', 'openurl', ENV.fetch('SIMULATOR_UDID'), start_url.to_s)
     raise 'The simulator could not open the start URL'
   end
-  wait_until(75, 'Safari did not expose the web page') do
-    driver.find_elements(:ios_predicate, 'type == "XCUIElementTypeWebView"').any? do |element|
-      element.dom_attribute('visible').to_s == 'true'
-    end
-  end
-  link = scroll_for_link(driver, start_label)
+  size = driver.manage.window.size
+  x, y = scroll_for_link(driver, size, start_label)
   tapped_at = Time.now.to_f - APPLE_EPOCH
-  puts 'Tapping the consultation link through Appium XCUITest'
-  link.click
+  puts 'Tapping the visible consultation link through Appium XCUITest'
+  driver.execute_script('mobile: tap', { x: (size.width * x).round, y: (size.height * y).round })
   wait_until(40, 'Safari did not record a successful visit to /advisers after the tap') do
     recently_visited?(history, start_url.host, tapped_at)
   end
   puts 'Reached /advisers; scrolling to the destination link'
-  scroll_for_link(driver, destination_label, match: 'CONTAINS')
+  scroll_for_link(driver, size, destination_label)
   puts 'PASS: Safari opened /advisers and displayed the destination link'
 rescue StandardError
   if driver

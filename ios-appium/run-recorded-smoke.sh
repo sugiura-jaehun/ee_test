@@ -3,6 +3,8 @@ set -euo pipefail
 
 output="$RUNNER_TEMP/ios-appium-recording"
 mkdir -p "$output"
+export SAFARI_OCR_BIN="$RUNNER_TEMP/ios-screen-text"
+swiftc ios-appium/find-screen-text.swift -o "$SAFARI_OCR_BIN"
 
 cleanup() {
   if [[ -n "${record_pid:-}" ]]; then
