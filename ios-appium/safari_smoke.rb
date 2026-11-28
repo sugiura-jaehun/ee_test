@@ -15,12 +15,16 @@ end
 def screen_positions(label)
   Dir.mktmpdir('safari-smoke') do |directory|
     screenshot = File.join(directory, 'screen.png')
+    captured_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     _, capture = Open3.capture2('xcrun', 'simctl', 'io', ENV.fetch('SIMULATOR_UDID'),
                               'screenshot', screenshot)
     raise 'Could not capture the iPhone screen' unless capture.success?
+    recognition_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    puts format('Screen capture took %.1fs', recognition_started - captured_at)
 
     positions, result = Open3.capture2(ENV.fetch('SAFARI_OCR_BIN'), screenshot, label)
     raise 'Could not read the iPhone screen' unless result.success?
+    puts format('Reading visible text took %.1fs', Process.clock_gettime(Process::CLOCK_MONOTONIC) - recognition_started)
 
     JSON.parse(positions)
   end
@@ -71,7 +75,7 @@ caps = Selenium::WebDriver::Remote::Capabilities.new(
   'appium:automationName' => 'XCUITest',
   'appium:udid' => ENV.fetch('SIMULATOR_UDID'),
   'appium:webDriverAgentUrl' => 'http://127.0.0.1:8100',
-  'appium:newCommandTimeout' => 240,
+  'appium:newCommandTimeout' => 600,
   'appium:settings[defaultActiveApplication]' => SAFARI,
   'appium:isHeadless' => true,
   'appium:noReset' => true,
