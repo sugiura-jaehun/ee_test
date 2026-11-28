@@ -13,6 +13,7 @@ when 'safari-webdriver'
     'platformName' => 'iOS',
     'browserName' => 'Safari',
     'appium:automationName' => 'Safari',
+    'appium:newCommandTimeout' => 600,
     'safari:useSimulator' => true,
     'safari:deviceUDID' => ENV.fetch('SIMULATOR_UDID')
   }
@@ -93,9 +94,7 @@ begin
   end
   puts 'Tapping the start link'
   if browser == 'safari-webdriver'
-    actions = session.driver.browser.action
-    actions.add_pointer_input(:touch, 'finger')
-    actions.click(start_link.native, device: 'finger').perform
+    raise 'The XCTest tap did not complete' unless system('bash', 'ios-appium/tap-safari-link.sh')
   else
     start_link.click
   end

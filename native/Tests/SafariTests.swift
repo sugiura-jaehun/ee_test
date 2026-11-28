@@ -2,6 +2,18 @@ import XCTest
 import Vision
 
 final class SafariTests: XCTestCase {
+    func testTapConfiguredLinkInOpenSafari() throws {
+        continueAfterFailure = false
+        let label = try XCTUnwrap(ProcessInfo.processInfo.environment["SMOKE_LINK_LABEL"])
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        safari.activate()
+
+        let link = safari.webViews.links[label].firstMatch
+        XCTAssertTrue(link.waitForExistence(timeout: 25), "Safari link was not visible to XCTest")
+        link.tap()
+        print("XCTest tapped the configured Safari web link")
+    }
+
     func testDismissSafariToolbarTip() throws {
         let start = try XCTUnwrap(ProcessInfo.processInfo.environment["SMOKE_START_URL"])
         let url = try XCTUnwrap(URL(string: start))
